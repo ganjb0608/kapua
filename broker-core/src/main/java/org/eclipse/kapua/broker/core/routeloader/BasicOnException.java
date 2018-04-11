@@ -9,7 +9,7 @@
  * Contributors:
  *     Eurotech - initial API and implementation
  *******************************************************************************/
-package org.eclipse.kapua.broker.core.route;
+package org.eclipse.kapua.broker.core.routeloader;
 
 import java.util.List;
 
@@ -39,15 +39,37 @@ import org.slf4j.LoggerFactory;
         "retryAttemptedLogLevel",
         "endpointList"
 })
+/**
+ * Basic on exception component implementation
+ * 
+ */
 public class BasicOnException implements OnException {
 
     private final static Logger logger = LoggerFactory.getLogger(BasicOnException.class);
 
+    /**
+     * Component id
+     */
     private String id;
+    /**
+     * Java exception class (fully qualified name)
+     */
     private String exception;
+    /**
+     * Maximun redeliveries before fallback to the error route
+     */
     private String maximumRedeliveries;
+    /**
+     * Log the retry attempt
+     */
     private String logRetryAttempted;
+    /**
+     * Retry attempt log level
+     */
     private String retryAttemptedLogLevel;
+    /**
+     * Endpoint to
+     */
     private List<Endpoint> endpointList;
 
     @XmlAttribute

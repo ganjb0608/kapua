@@ -9,10 +9,11 @@
  * Contributors:
  *     Eurotech - initial API and implementation
  *******************************************************************************/
-package org.eclipse.kapua.broker.core.route;
+package org.eclipse.kapua.broker.core.routeloader;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -29,6 +30,7 @@ import org.apache.camel.model.PipelineDefinition;
 import org.apache.camel.model.ProcessorDefinition;
 import org.apache.camel.model.RouteDefinition;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.kapua.KapuaException;
 
 @XmlRootElement(name = "basicRoute")
 @XmlAccessorType(XmlAccessType.PROPERTY)
@@ -40,13 +42,35 @@ import org.apache.commons.lang3.StringUtils;
         "routeList",
         "onExceptionList"
 })
+/**
+ * Basic route implementation
+ *
+ */
 public class BasicRoute implements Route {
 
+    /**
+     * Id
+     */
     private String id;
+    /**
+     * Autostartup
+     */
     private boolean autoStartup;
+    /**
+     * From (uri)
+     */
     private String from;
+    /**
+     * List of brick that compose the route
+     */
     private List<Brick> routeList;
+    /**
+     * Multicast the bricks (so every brick will be executed in parallel)
+     */
     private boolean multicast;
+    /**
+     * Exception handling list
+     */
     private List<OnException> onExceptionList;
 
     public BasicRoute() {
@@ -110,35 +134,35 @@ public class BasicRoute implements Route {
     }
 
     @Override
-    public void appendBrickDefinition(ProcessorDefinition<?> processorDefinition, CamelContext camelContext) throws UnsupportedOperationException {
+    public void appendBrickDefinition(ProcessorDefinition<?> processorDefinition, CamelContext camelContext, Map<String, Object> ac) throws UnsupportedOperationException, KapuaException {
         if (processorDefinition instanceof RouteDefinition) {
-            appendBrickDefinitionInternal((RouteDefinition) processorDefinition, camelContext);
+            appendBrickDefinitionInternal((RouteDefinition) processorDefinition, camelContext, ac);
         } else if (processorDefinition instanceof ChoiceDefinition) {
             check();
-            appendBrickDefinitionInternal((ChoiceDefinition) processorDefinition, camelContext);
+            appendBrickDefinitionInternal((ChoiceDefinition) processorDefinition, camelContext, ac);
         } else if (processorDefinition instanceof PipelineDefinition) {
             check();
-            appendBrickDefinitionInternal((PipelineDefinition) processorDefinition, camelContext);
+            appendBrickDefinitionInternal((PipelineDefinition) processorDefinition, camelContext, ac);
         } else if (processorDefinition instanceof MulticastDefinition) {
             check();
-            appendBrickDefinitionInternal((MulticastDefinition) processorDefinition, camelContext);
+            appendBrickDefinitionInternal((MulticastDefinition) processorDefinition, camelContext, ac);
         } else {
             throw new UnsupportedOperationException(
                     String.format("Unsupported ProcessDefinition [%s]... Only ChoiceDefinition, PipelineDefinition, PipelineDefinition and RouteDefinition are allowed", this.getClass()));
         }
     }
 
-    private void appendBrickDefinitionInternal(RouteDefinition routeDefinition, CamelContext camelContext) {
+    private void appendBrickDefinitionInternal(RouteDefinition routeDefinition, CamelContext camelContext, Map<String, Object> ac) throws UnsupportedOperationException, KapuaException {
         routeDefinition.setId(id);
         routeDefinition.setAutoStartup(Boolean.toString(autoStartup));
         if (multicast) {
             MulticastDefinition md = routeDefinition.multicast();
-            appendBrickDefinitionInternal(md, camelContext);
+            appendBrickDefinitionInternal(md, camelContext, ac);
             md.end();
         }
         else {
             PipelineDefinition pd = routeDefinition.pipeline();
-            appendBrickDefinitionInternal(pd, camelContext);
+            appendBrickDefinitionInternal(pd, camelContext, ac);
             pd.end();
         }
         for (OnException onException : onExceptionList) {
@@ -147,28 +171,28 @@ public class BasicRoute implements Route {
     }
 
 
-    private void appendBrickDefinitionInternal(PipelineDefinition pipelineDefinition, CamelContext camelContext) {
+    private void appendBrickDefinitionInternal(PipelineDefinition pipelineDefinition, CamelContext camelContext, Map<String, Object> ac) throws UnsupportedOperationException, KapuaException {
         for (Brick route : routeList) {
-            route.appendBrickDefinition(pipelineDefinition, camelContext);
+            route.appendBrickDefinition(pipelineDefinition, camelContext, ac);
         }
     }
 
-    private void appendBrickDefinitionInternal(MulticastDefinition multicastDefinition, CamelContext camelContext) {
+    private void appendBrickDefinitionInternal(MulticastDefinition multicastDefinition, CamelContext camelContext, Map<String, Object> ac) throws UnsupportedOperationException, KapuaException {
         for (Brick route : routeList) {
             PipelineDefinition pd = multicastDefinition.pipeline();
-            route.appendBrickDefinition(pd, camelContext);
+            route.appendBrickDefinition(pd, camelContext, ac);
             pd.end();
         }
     }
 
-    private void appendBrickDefinitionInternal(ChoiceDefinition choiceDefinition, CamelContext camelContext) {
+    private void appendBrickDefinitionInternal(ChoiceDefinition choiceDefinition, CamelContext camelContext, Map<String, Object> ac) throws UnsupportedOperationException, KapuaException {
         if (multicast) {
             MulticastDefinition md = choiceDefinition.multicast();
-            appendBrickDefinitionInternal(md, camelContext);
+            appendBrickDefinitionInternal(md, camelContext, ac);
             md.end();
         } else {
             PipelineDefinition pd = choiceDefinition.pipeline();
-            appendBrickDefinitionInternal(pd, camelContext);
+            appendBrickDefinitionInternal(pd, camelContext, ac);
             pd.end();
         }
     }

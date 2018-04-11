@@ -9,9 +9,11 @@
  * Contributors:
  *     Eurotech - initial API and implementation
  *******************************************************************************/
-package org.eclipse.kapua.broker.core.route;
+package org.eclipse.kapua.broker.core.routeloader;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -23,30 +25,41 @@ import javax.xml.bind.annotation.XmlType;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.model.ChoiceDefinition;
+import org.apache.camel.model.PipelineDefinition;
 import org.apache.camel.model.ProcessorDefinition;
-import org.eclipse.kapua.broker.core.router.PlaceholderReplacer;
+import org.apache.camel.model.RouteDefinition;
+import org.eclipse.kapua.KapuaException;
 import org.eclipse.persistence.oxm.annotations.XmlPath;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-@XmlRootElement(name = "choiceLeaf")
+@XmlRootElement(name = "choiceRoot")
 @XmlAccessorType(XmlAccessType.PROPERTY)
 @XmlType(propOrder = {
         "id",
-        "condition",
         "choiceList",
         "otherwise"
 })
-public class ChoiceLeaf implements Brick {
+/**
+ * Choice brick root object.</br>
+ * It's the container for the when/otherwise conditions
+ *
+ */
+public class ChoiceRoot implements Brick {
 
-    private final static Logger logger = LoggerFactory.getLogger(ChoiceLeaf.class);
-
+    /**
+     * Id
+     */
     private String id;
-    private String condition;
+    /**
+     * Choice list (when conditions)
+     */
     private List<Brick> choiceList;
+    /**
+     * Otherwise condition (fired if none of the previous step is fired)
+     */
     private Brick otherwise;
 
-    public ChoiceLeaf() {
+    public ChoiceRoot() {
+        choiceList = new ArrayList<>();
     }
 
     @XmlAttribute
@@ -56,15 +69,6 @@ public class ChoiceLeaf implements Brick {
 
     public void setId(String id) {
         this.id = id;
-    }
-
-    @XmlAttribute
-    public String getCondition() {
-        return condition;
-    }
-
-    public void setCondition(String condition) {
-        this.condition = PlaceholderReplacer.replacePlaceholder(condition);
     }
 
     @XmlElementWrapper(name = "choiceList")
@@ -88,45 +92,43 @@ public class ChoiceLeaf implements Brick {
     }
 
     @Override
-    public void appendBrickDefinition(ProcessorDefinition<?> processorDefinition, CamelContext camelContext) throws UnsupportedOperationException {
-        if (processorDefinition instanceof ChoiceDefinition) {
-            ProcessorDefinition<ChoiceDefinition> whenChoiceDefinition = ((ChoiceDefinition) processorDefinition).when().simple(condition);
-            for (Brick choice : choiceList) {
-                if (choice instanceof Endpoint) {
-                    try {
-                        org.apache.camel.Endpoint ep = ((Endpoint) choice).asEndpoint(camelContext);
-                        whenChoiceDefinition.to(ep);
-                    } catch (UnsupportedOperationException e) {
-                        logger.info("Cannot get {} as Endpoint. Try to get it as Uri", ((Endpoint) choice));
-                        whenChoiceDefinition.to(((Endpoint) choice).asUriEndpoint(camelContext));
-                    }
-                } else {
-                    choice.appendBrickDefinition(((ChoiceDefinition) processorDefinition), camelContext);
-                }
-            }
-            ((ChoiceDefinition) processorDefinition).endChoice();
-            whenChoiceDefinition.end();
-            if (otherwise != null) {
-                ((ChoiceDefinition) processorDefinition).otherwise();
-                otherwise.appendBrickDefinition(((ChoiceDefinition) processorDefinition), camelContext);
-            }
+    public void appendBrickDefinition(ProcessorDefinition<?> processorDefinition, CamelContext camelContext, Map<String, Object> ac) throws UnsupportedOperationException, KapuaException {
+        ChoiceDefinition cd = null;
+        if (processorDefinition instanceof RouteDefinition) {
+            cd = ((RouteDefinition) processorDefinition).choice();
+        } else if (processorDefinition instanceof ChoiceDefinition) {
+            cd = ((ChoiceDefinition) processorDefinition).choice();
+        } else if (processorDefinition instanceof PipelineDefinition) {
+            cd = ((PipelineDefinition) processorDefinition).choice();
         }
         else {
-            throw new UnsupportedOperationException(String.format("Unsupported ProcessDefinition [%s]... Only ChoiceDefinition is allowed", this.getClass()));
+            throw new UnsupportedOperationException(String.format("Unsupported ProcessDefinition [%s]... Only ChoiceDefinition, PipelineDefinition and RouteDefinition are allowed", this.getClass()));
         }
+        appendRouteDefinitionInternal(cd, camelContext, ac);
     }
 
+    private void appendRouteDefinitionInternal(ChoiceDefinition cd, CamelContext camelContext, Map<String, Object> ac) throws UnsupportedOperationException, KapuaException {
+        for (Brick choiceWhen : choiceList) {
+            choiceWhen.appendBrickDefinition(cd, camelContext, ac);
+        }
+        cd.endChoice();
+        if (otherwise != null) {
+            cd.otherwise();
+            otherwise.appendBrickDefinition(cd, camelContext, ac);
+        }
+        cd.end();
+    }
+
+    @Override
     public void toLog(StringBuffer buffer, String prefix) {
         buffer.append(prefix);
-        buffer.append("StepChoiceWhen - id");
+        buffer.append("StepChoice - id: ");
         buffer.append(id);
-        buffer.append(" condition: ");
-        buffer.append(condition);
         buffer.append("\n");
         prefix += "\t";
-        for (Brick choice : choiceList) {
+        for (Brick choiceWhen : choiceList) {
             buffer.append(prefix);
-            choice.toLog(buffer, prefix);
+            choiceWhen.toLog(buffer, prefix);
             buffer.append("\n");
         }
         if (otherwise != null) {

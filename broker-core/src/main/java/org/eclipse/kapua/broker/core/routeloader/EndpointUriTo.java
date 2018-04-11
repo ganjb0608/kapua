@@ -9,7 +9,9 @@
  * Contributors:
  *     Eurotech - initial API and implementation
  *******************************************************************************/
-package org.eclipse.kapua.broker.core.route;
+package org.eclipse.kapua.broker.core.routeloader;
+
+import java.util.Map;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -26,9 +28,19 @@ import org.apache.camel.model.ProcessorDefinition;
         "id",
         "uri"
 })
+/**
+ * Endpoint uri implementation
+ *
+ */
 public class EndpointUriTo implements Endpoint {
 
+    /**
+     * Id
+     */
     private String id;
+    /**
+     * Uri to invoke
+     */
     private String uri;
 
     @XmlAttribute
@@ -50,7 +62,7 @@ public class EndpointUriTo implements Endpoint {
     }
 
     @Override
-    public void appendBrickDefinition(ProcessorDefinition<?> processorDefinition, CamelContext camelContext) throws UnsupportedOperationException {
+    public void appendBrickDefinition(ProcessorDefinition<?> processorDefinition, CamelContext camelContext, Map<String, Object> ac) throws UnsupportedOperationException {
         processorDefinition.to(uri);
     }
 

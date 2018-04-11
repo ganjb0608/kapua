@@ -9,10 +9,13 @@
  * Contributors:
  *     Eurotech - initial API and implementation
  *******************************************************************************/
-package org.eclipse.kapua.broker.core.route;
+package org.eclipse.kapua.broker.core.routeloader;
+
+import java.util.Map;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.model.ProcessorDefinition;
+import org.eclipse.kapua.KapuaException;
 
 /**
  * Base Camel brick definition
@@ -39,11 +42,18 @@ public interface Brick {
      * 
      * @param processorDefinition
      * @param camelContext
+     * @param applicationContext
      * @throws UnsupportedOperationException
      *             if the specific ProcessorDefinition instance is not supported
      */
-    void appendBrickDefinition(ProcessorDefinition<?> processorDefinition, CamelContext camelContext) throws UnsupportedOperationException;
+    void appendBrickDefinition(ProcessorDefinition<?> processorDefinition, CamelContext camelContext, Map<String, Object> applicationContext) throws UnsupportedOperationException, KapuaException;
 
+    /**
+     * Append the brick to the buffer in a human readable fashion
+     * 
+     * @param buffer
+     * @param prefix
+     */
     void toLog(StringBuffer buffer, String prefix);
 
 }
